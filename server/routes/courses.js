@@ -3,6 +3,7 @@ const coursesCtrl = require("../controllers/courses");
 const router = express.Router();
 const auth = require("../helpers/auth");
 
+
 router.route('/add').post( coursesCtrl.add_course);
 router.route('/add/modules').post(coursesCtrl.add_course_modules);
 router.route('/add/videos').post(coursesCtrl.add_videos);  

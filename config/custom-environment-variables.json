@@ -1,0 +1,40 @@
+{
+    "App": {
+        "config": {
+            "port": "PORT"
+        },
+        "db": {
+            "host": "DB_HOST",
+            "port": "DB_PORT",
+            "user": "DB_USER",
+            "password": "DB_PASSWORD",
+            "name": "DB_NAME"
+        },
+        "redis": {
+            "host": "REDIS_HOST",
+            "port": "REDIS_PORT"
+        },
+        "sendgrid": {
+            "api_key": "SENDGRID_API_KEY",
+            "template_id": "SENDGRID_TEMPLATE_ID"
+        },
+        "2faSms": {
+            "apiKey": "TWOFA_API_KEY",
+            "url": "TWOFA_URL",
+            "schoolOtpTemplate": "SCHOOL_OTP_TEMPLATE",
+            "senderId": "TWOFA_SENDER_ID"
+        },
+        "aws": {
+            "accessKeyId": "AWS_ACCESS_KEY_ID",
+            "secretAccessKey": "AWS_SECRET_ACCESS_KEY",
+            "region": "AWS_REGION",
+            "studentImgBucket": "STUDENT_IMG_BUCKET",
+            "schoolZipBucket": "SCHOOL_ZIP_BUCKET",
+            "studentPDFBucket": "STUDENT_PDF_BUCKET",
+            "requestLogsQueue": "AWS_REQUEST_LOGS_QUEUE"
+        },
+        "access": {
+            "wildCard": "ACCESS_WILD_CARD"
+        }
+    }
+}

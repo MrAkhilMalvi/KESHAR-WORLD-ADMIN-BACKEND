@@ -1,0 +1,15 @@
+FROM 671939990958.dkr.ecr.ap-southeast-1.amazonaws.com/node:10.15-jessie-slim
+RUN useradd -m -s /bin/false app
+ENV HOME=/home/app
+
+ENV REFRESHED_AT=2016-09-02
+
+USER root
+RUN npm install pm2@3.2.2 -g --depth 0 --silent --no-summary
+
+ADD package.json $HOME/hsc-gen-main-backend/
+RUN chown -R app:app $HOME/*
+WORKDIR $HOME/hsc-gen-main-backend
+RUN npm install --only=prod --depth 0 --silent --no-summary
+
+COPY . $HOME/hsc-gen-main-backend

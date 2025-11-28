@@ -1,0 +1,5 @@
+# Node modules ingnore
+node_modules/
+
+#congif folder ingnore
+# config/

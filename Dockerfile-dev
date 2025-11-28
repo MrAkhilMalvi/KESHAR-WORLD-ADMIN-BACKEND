@@ -1,0 +1,14 @@
+# FROM node:10.15-jessie-slim
+FROM node:24.2.0-alpine3.21
+
+# RUN useradd -m -s /bin/false app
+RUN adduser -D -s /bin/false app
+ENV HOME=/home/app
+
+ENV REFRESHED_AT=2016-09-01
+
+ADD package.json package-lock.json $HOME/hsc-gen-main-backend/
+RUN chown -R app:app $HOME/*
+WORKDIR $HOME/hsc-gen-main-backend
+RUN npm install nodemon
+RUN npm install --depth 0 --silent --no-summary

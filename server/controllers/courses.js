@@ -60,6 +60,7 @@ async function update_course(req, res, next) {
 
     try {
         const {
+            coures_id,
             title,
             price,
             description,
@@ -69,8 +70,8 @@ async function update_course(req, res, next) {
             badge, category,
             thumbnail_url
         } = req.body;
-        const userid = req.user.id;
-        const result = await pgClient.query('SELECT * FROM admin_courses_updation_course($1,$2,$3,$4,$5,$6,$7,$8,$9)',[userid,title, price, description, is_free, instructor, original_price, badge, category,thumbnail_url]);
+        
+        const result = await pgClient.query('SELECT * FROM admin_courses_updation_course($1,$2,$3,$4,$5,$6,$7,$8,$9)',[coures_id,title, price, description, is_free, instructor, original_price, badge, category,thumbnail_url]);
 
         return res.send({ success: true, data: result.rows[0] })
     } catch (error) {
@@ -82,12 +83,13 @@ async function update_course_modules(req, res, next) {
 
     try {
         const {
+            modules_id,
             module_title,
             position
         } = req.body;
-        const userid = req.user.id;
 
-        const result = await pgClient.query('SELECT * FROM admin_courses_update_module($1,$2,$3)',[userid, module_title, position]);
+
+        const result = await pgClient.query('SELECT * FROM admin_courses_update_module($1,$2,$3)',[modules_id, module_title, position]);
 
         return res.send({ success: true, data: result.rows[0] })
     } catch (error) {
@@ -99,17 +101,16 @@ async function update_videos(req, res, next) {
 
     try {
         const {
+            video_id,
             video_title,
             video_url,
             duration,
             description,
-            position,
-            badge
+            position
         } = req.body;
         
-        const userid = req.user.id;
 
-        const result = await pgClient.query('SELECT * FROM admin_courses_insert_videos($1,$2,$3,$4,$5,$6)',[userid, video_title, video_url, duration,description, position]);
+        const result = await pgClient.query('SELECT * FROM admin_courses_insert_videos($1,$2,$3,$4,$5,$6)',[video_id, video_title, video_url, duration,description, position]);
 
         return res.send({ success: true, data: result.rows[0] })
     } catch (error) {

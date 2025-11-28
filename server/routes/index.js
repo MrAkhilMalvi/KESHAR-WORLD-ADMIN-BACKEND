@@ -1,27 +1,17 @@
 const express = require("express");
 const router = express.Router();
 const adminLoginRoutes = require('./admin-login');
-const dashboard_stats = require('./dashboard_stats');
-const audit_queries = require('../routes/audit-queires');
-const schoolRoutes = require('./school');
-const examRoutes = require('./exam');
-const candidateRoutes = require('./candidate');
+//const dashboard_stats = require('.');
 const forgotPasswordRoutes = require('./forgot-password');
 const projectMeta = require('./projectMeta');
-const report = require('../routes/report');
-const truncate = require('../routes/truncate');
-const rateLimitRoute = require('./rateLimite');
+const couresRoutes = require('./courses');
+
 
 router.get('/health-check', (req, res) => res.send('OK'));
 router.use('/admin-login', adminLoginRoutes);
-router.use('/dashboard' , dashboard_stats);
-router.use('/exam', examRoutes);
-router.use('/audit-queries', audit_queries);
-router.use('/school', schoolRoutes);
-router.use('/candidate', candidateRoutes);
+//router.use('/dashboard' , dashboard_stats);
+
 router.use('/forgot-password', forgotPasswordRoutes);
 router.use('/projectmeta' , projectMeta);
-router.use('/truncate',truncate);
-router.use('/report' , report);
-router.use('/ratelimit',rateLimitRoute);
+router.use('/courses' , couresRoutes);
 module.exports = router;

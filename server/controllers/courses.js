@@ -48,6 +48,7 @@ async function add_videos(req, res, next) {
             description,
             position
         } = req.body;
+        console.log("body",req.body)
         const result = await pgClient.query('SELECT * FROM admin_courses_insert_videos($1,$2,$3,$4,$5,$6)',[module_id, video_title, video_url, duration,description, position]);
 
         return res.send({ success: true, data: result.rows[0] })
@@ -60,6 +61,7 @@ async function update_course(req, res, next) {
 
     try {
         const {
+            id,
             title,
             price,
             description,
@@ -69,10 +71,10 @@ async function update_course(req, res, next) {
             badge, category,
             thumbnail_url
         } = req.body;
-        const userid = req.user.id;
-        const result = await pgClient.query('SELECT * FROM admin_courses_updation_course($1,$2,$3,$4,$5,$6,$7,$8,$9)',[userid,title, price, description, is_free, instructor, original_price, badge, category,thumbnail_url]);
+        console.log(req.body)
+        const result = await pgClient.query('SELECT * FROM admin_courses_updation_course($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',[id,title, price, description, is_free, instructor, original_price, badge, category,thumbnail_url]);
 
-        return res.send({ success: true, data: result.rows[0] })
+        return res.send({ success: true, data: result.rows })
     } catch (error) {
         next(error);
     }
@@ -82,12 +84,13 @@ async function update_course_modules(req, res, next) {
 
     try {
         const {
+            modules_id,
             module_title,
             position
         } = req.body;
-        const userid = req.user.id;
 
-        const result = await pgClient.query('SELECT * FROM admin_courses_update_module($1,$2,$3)',[userid, module_title, position]);
+
+        const result = await pgClient.query('SELECT * FROM admin_courses_update_module($1,$2,$3)',[modules_id, module_title, position]);
 
         return res.send({ success: true, data: result.rows[0] })
     } catch (error) {
@@ -99,17 +102,16 @@ async function update_videos(req, res, next) {
 
     try {
         const {
-            video_title,
-            video_url,
-            duration,
-            description,
-            position,
-            badge
+            video_id,
+            title,
+            url,
+            video_duration,
+            video_description,
+            video_position
         } = req.body;
-        
-        const userid = req.user.id;
+        console.log("req.body",req.body)
 
-        const result = await pgClient.query('SELECT * FROM admin_courses_insert_videos($1,$2,$3,$4,$5,$6)',[userid, video_title, video_url, duration,description, position]);
+        const result = await pgClient.query('SELECT * FROM admin_courses_update_videos($1,$2,$3,$4,$5,$6)',[video_id, title, url, video_duration,video_description, video_position]);
 
         return res.send({ success: true, data: result.rows[0] })
     } catch (error) {
@@ -123,7 +125,7 @@ async function select_all_courses(req, res, next) {
       
         const result = await pgClient.query('SELECT * FROM admin_courses_select_all()',[]);
 
-        return res.send({ success: true, data: result.rows[0] })
+        return res.send({ success: true, data: result.rows })
     } catch (error) {
         next(error);
     }
@@ -135,7 +137,7 @@ async function get_modules_by_course(req, res, next) {
         const { couses_id } = req.body;
         const result = await pgClient.query('SELECT * FROM admin_courses_get_modules_by_course($1)',[couses_id]);
 
-        return res.send({ success: true, data: result.rows[0] })
+        return res.send({ success: true, data: result.rows })
     } catch (error) {
         next(error);
     }
@@ -147,7 +149,7 @@ async function get_videos_by_module(req, res, next) {
         const { module_id } = req.body;
         const result = await pgClient.query('SELECT * FROM admin_courses_get_videos_by_module($1)',[module_id]);
 
-        return res.send({ success: true, data: result.rows[0] })
+        return res.send({ success: true, data: result.rows })
     } catch (error) {
         next(error);
     }

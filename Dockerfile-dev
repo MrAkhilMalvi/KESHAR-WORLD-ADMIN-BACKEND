@@ -7,8 +7,8 @@ ENV HOME=/home/app
 
 ENV REFRESHED_AT=2016-09-01
 
-ADD package.json package-lock.json $HOME/hsc-gen-main-backend/
+ADD package.json package-lock.json $HOME/keshar-world-admin-backend/
 RUN chown -R app:app $HOME/*
-WORKDIR $HOME/hsc-gen-main-backend
+WORKDIR $HOME/keshar-world-admin-backend
 RUN npm install nodemon
 RUN npm install --depth 0 --silent --no-summary

@@ -1,13 +1,13 @@
 services:
-  hsc-gen-main-backend:
+  keshar-world-admin-backend:
     build:
       context: .
       dockerfile: Dockerfile-dev
     environment:
       NODE_ENV: development
     ports:
-      - "3002:3002"
+      - "3029:3029"
     volumes:
-      - .:/home/app/hsc-gen-main-backend
-      - /home/app/hsc-gen-main-backend/node_modules
+      - .:/home/app/keshar-world-admin-backend
+      - /home/app/keshar-world-admin-backend/node_modules
     entrypoint: npm start

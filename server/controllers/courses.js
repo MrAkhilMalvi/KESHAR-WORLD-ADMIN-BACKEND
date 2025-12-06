@@ -1,4 +1,9 @@
 const pgClient = require('../../config/db');
+const config = require ('config')
+
+
+const cloude = config.get("App.cloude");
+const { R2uploedFrom, PutObjectCommand, getSignedUrl ,R2DeleteFrom , deleteAllByPrefix} = require("../helpers/r2Client");
 
 async function add_course(req, res, next) {
 
@@ -10,12 +15,24 @@ async function add_course(req, res, next) {
             is_free,
             instructor,
             original_price,
-            badge, category,
-            thumbnail_url
+            badge, 
+            category,
+            contentType,
+            fileName
         } = req.body;
-        const result = await pgClient.query('SELECT * FROM admin_courses_insert_course($1,$2,$3,$4,$5,$6,$7,$8,$9)',[title, price, description, is_free, instructor, original_price, badge, category,thumbnail_url]);
+        
+        const type = "course_thumbnail";
 
-        return res.send({ success: true, data: result.rows[0] })
+        const result = await pgClient.query('SELECT * FROM admin_courses_insert_course($1,$2,$3,$4,$5,$6,$7,$8)',[title, price, description, is_free, instructor, original_price, badge, category]);
+        
+        const id = result.rows[0].admin_courses_insert_course 
+  
+       const data = await DynamicSignedURL(type, id,fileName, contentType)
+   
+       const results = await pgClient.query('SELECT * FROM admin_courses_insert_course_url($1,$2)',[id,data.objectKey]);
+ 
+
+        return res.send({ success: true, data: id, objectKey : data.uploadUrl })
     } catch (error) {
         next(error);
     }
@@ -43,13 +60,19 @@ async function add_videos(req, res, next) {
         const {
             module_id,
             video_title,
-            video_url,
+            objectKey,
             duration,
             description,
-            position
+            position,
+            thumbnail_url
         } = req.body;
-        console.log("body",req.body)
-        const result = await pgClient.query('SELECT * FROM admin_courses_insert_videos($1,$2,$3,$4,$5,$6)',[module_id, video_title, video_url, duration,description, position]);
+
+
+        console.log("body",req.body," ",objectKey);
+
+        const result = await pgClient.query('SELECT * FROM admin_courses_insert_videos($1,$2,$3,$4,$5,$6,$7)',[module_id, video_title, objectKey, duration,description, position,thumbnail_url]);
+
+
 
         return res.send({ success: true, data: result.rows[0] })
     } catch (error) {
@@ -68,10 +91,17 @@ async function update_course(req, res, next) {
             is_free,
             instructor,
             original_price,
-            badge, category,
+            badge,
+            category,
             thumbnail_url
         } = req.body;
-        console.log(req.body)
+
+        const data = await pgClient.query('SELECT * FROM admin_courses_select($1)',[id]);
+
+       if(thumbnail_url === data.rows[0].thumbnail_url){
+        const  R2_Data = await Dynamic_Delete_R2_Data( data.rows[0].thumbnail_url);
+       }
+
         const result = await pgClient.query('SELECT * FROM admin_courses_updation_course($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',[id,title, price, description, is_free, instructor, original_price, badge, category,thumbnail_url]);
 
         return res.send({ success: true, data: result.rows })
@@ -99,25 +129,65 @@ async function update_course_modules(req, res, next) {
 }
 
 async function update_videos(req, res, next) {
+  try {
+    const {
+      video_id,
+      title,
+      url,
+      video_duration,
+      video_description,
+      video_position,
+      thumbnail_url,
+    } = req.body;
 
-    try {
-        const {
-            video_id,
-            title,
-            url,
-            video_duration,
-            video_description,
-            video_position
-        } = req.body;
-        console.log("req.body",req.body)
+    console.log("req.body", req.body);
 
-        const result = await pgClient.query('SELECT * FROM admin_courses_update_videos($1,$2,$3,$4,$5,$6)',[video_id, title, url, video_duration,video_description, video_position]);
+    // 1) Get existing video details
+    const data = await pgClient.query(
+      "SELECT * FROM admin_courses_select_video($1)",
+      [video_id]                     // FIXED
+    );
 
-        return res.send({ success: true, data: result.rows[0] })
-    } catch (error) {
-        next(error);
+    if (data.rows.length === 0) {
+      return res.status(404).send({
+        success: false,
+        message: "Video not found",
+      });
     }
+
+    const old_video = data.rows[0];
+
+    // 2) Delete old thumbnail if updated
+    if (thumbnail_url && old_video.thumbnail_url && thumbnail_url !== old_video.thumbnail_url) {
+      await Dynamic_Delete_R2_Data(old_video.thumbnail_url);
+    }
+
+    // 3) Delete old video if updated
+    if (url && old_video.video_url && url !== old_video.video_url) {
+      await Dynamic_Delete_R2_Data(old_video.video_url);
+    }
+
+    // 4) Update record in DB
+    const result = await pgClient.query(
+      "SELECT * FROM admin_courses_update_videos($1,$2,$3,$4,$5,$6,$7)",
+      [
+        video_id,
+        title,
+        url,
+        video_duration,
+        video_description,
+        video_position,
+        thumbnail_url,
+      ]
+    );
+
+    return res.send({ success: true, data: result.rows[0] });
+  } catch (error) {
+    console.error("update_videos ERROR:", error);
+    next(error);
+  }
 }
+
 
 async function select_all_courses(req, res, next) {
 
@@ -125,7 +195,16 @@ async function select_all_courses(req, res, next) {
       
         const result = await pgClient.query('SELECT * FROM admin_courses_select_all()',[]);
 
-        return res.send({ success: true, data: result.rows })
+        const finalData = result.rows.map(course => {
+            return {
+                ...course,
+                thumbnail_url: course.thumbnail_url 
+                    ? `${cloude.PUBLIC_BUCKET_KEY}/${course.thumbnail_url}` 
+                    : null
+            };
+        });
+
+        return res.send({ success: true, data: finalData });
     } catch (error) {
         next(error);
     }
@@ -154,7 +233,274 @@ async function get_videos_by_module(req, res, next) {
         next(error);
     }
 }
+/*
+async function getDynamicSignedURL(req, res) {
+    try {
+        console.log("req.body",req.body)
+      const { type, course_id, module_id, video_id, product_id, fileName, contentType } = req.body;
+ 
+      if (!type || !fileName) {
+        return res.status(400).json({ success: false, message: "type and fileName required" });
+      }
+  
+      const safeName = fileName.replace(/\s/g, "_");
+      let objectKey = "";
+  
+      // ----- COURSES -----
+      if (type === "course_thumbnail") {
+        if (!course_id) return res.status(400).json({ message: "course_id required" });
+  
+        objectKey = `thumbnails/courses/${course_id}/${Date.now()}_${safeName}`;
+      }
+  
+      // ----- PRODUCTS -----
+      else if (type === "product_thumbnail") {
+        if (!product_id) return res.status(400).json({ message: "product_id required" });
+  
+        objectKey = `thumbnails/products/${product_id}/${Date.now()}_${safeName}`;
+      }
+  
+      // ----- VIDEOS -----
+      else if (type === "video") {
+        if (!module_id || !video_id)
+          return res.status(400).json({ message: "module_id & video_id required" });
+  
+        objectKey = `videos/${module_id}/${video_id}/${Date.now()}_${safeName}`;
+      }
+  
+      // ----- VIDEO THUMBNAILS -----
+      else if (type === "video_thumbnail") {
+        if (!module_id || !video_id)
+          return res.status(400).json({ message: "module_id & video_id required" });
+  
+        objectKey = `thumbnails/videos/${module_id}/${video_id}/${Date.now()}_${safeName}`;
+      }
+  
+      // Create Signed URL
+      const command = new PutObjectCommand({
+        Bucket: cloude.R2_BUCKET,
+        Key: objectKey,
+        ContentType: contentType || "application/octet-stream",
+      });
+  
+      const uploadUrl = await getSignedUrl(r2Client, command, { expiresIn: 3600 });
+  
+      return res.json({
+        success: true,
+        uploadUrl,
+        objectKey,
+      });
+  
+    } catch (error) {
+      console.error("Dynamic Signed URL Error:", error);
+      res.status(500).json({ success: false, message: "Failed to create signed URL" });
+    }
+  }
+*/
 
+// single iteam add
+async function DynamicSignedURL(type, id,fileName, contentType) {
+    try {
+
+      if (!type || !fileName) {
+        return res.status(400).json({ success: false, message: "type and fileName required" });
+      }
+  
+      // Extract extension
+      const ext = fileName.split('.').pop();
+      const baseName = fileName.replace(/\.[^/.]+$/, "").replace(/\s/g, "_");
+      const safeName = `${baseName}.${ext}`;
+      
+      // Auto MIME
+      const mimeMap = {
+        jpg: "image/jpeg",
+        jpeg: "image/jpeg",
+        png: "image/png",
+        webp: "image/webp",
+        gif: "image/gif",
+        mp4: "video/mp4",
+        mov: "video/quicktime",
+        avi: "video/x-msvideo",
+        mkv: "video/x-matroska",
+      };
+      const mimeType = contentType || mimeMap[ext.toLowerCase()] || "application/octet-stream";
+  
+      let objectKey = "";
+  
+      if (type === "course_thumbnail") {
+        if (!id) return res.status(400).json({ message: "course_id required" });
+        objectKey = `thumbnails/courses/${id}/${Date.now()}_${safeName}`;
+      }
+      else if (type === "product_thumbnail") {
+        if (!id) return res.status(400).json({ message: "product_id required" });
+        objectKey = `thumbnails/products/${id}/${Date.now()}_${safeName}`;
+      }
+    
+  
+      const command = new PutObjectCommand({
+        Bucket: cloude.R2_BUCKET,
+        Key: objectKey,
+        ContentType: mimeType,
+      });
+  
+      const uploadUrl = await getSignedUrl(R2uploedFrom, command, { expiresIn: 3600 });
+  
+      return {
+        success: true,
+        uploadUrl,
+        objectKey,
+      };
+  
+    } catch (error) {
+      console.error("Dynamic Signed URL Error:", error);
+      res.status(500).json({ success: false, message: "Failed to create signed URL" });
+    }
+  }
+
+// single update iteam
+  async function getDynamicSignedURL(req,res) {
+    try {
+    
+     const { type, course_id, module_id, video_id, product_id, fileName, contentType } = req.body;
+
+      if (!type || !fileName) {
+        return res.status(400).json({ success: false, message: "type and fileName required" });
+      }
+  
+      // Extract extension
+      const ext = fileName.split('.').pop();
+      const baseName = fileName.replace(/\.[^/.]+$/, "").replace(/\s/g, "_");
+      const safeName = `${baseName}.${ext}`;
+      
+      // Auto MIME
+      const mimeMap = {
+        jpg: "image/jpeg",
+        jpeg: "image/jpeg",
+        png: "image/png",
+        webp: "image/webp",
+        gif: "image/gif",
+        mp4: "video/mp4",
+        mov: "video/quicktime",
+        avi: "video/x-msvideo",
+        mkv: "video/x-matroska",
+      };
+      const mimeType = contentType || mimeMap[ext.toLowerCase()] || "application/octet-stream";
+  
+      let objectKey = "";
+  
+      if (type === "course_thumbnail") {
+        if (!id) return res.status(400).json({ message: "course_id required" });
+        objectKey = `thumbnails/courses/${id}/${Date.now()}_${safeName}`;
+      }
+      else if (type === "product_thumbnail") {
+        if (!product_id) return res.status(400).json({ message: "product_id required" });
+        objectKey = `thumbnails/products/${product_id}/${Date.now()}_${safeName}`;
+      }
+      else if (type === "video") {
+        if (!module_id )
+          return res.status(400).json({ message: "module_id & video_id required" });
+  
+        objectKey = `videos/${module_id}/${Date.now()}_${safeName}`;
+      }
+      else if (type === "video_thumbnail") {
+        if (!module_id)
+          return res.status(400).json({ message: "module_id & video_id required" });
+        objectKey = `thumbnails/videos/${module_id}/${Date.now()}_${safeName}`;
+      }
+      else if (type === "product_images") {
+        if (!product_id)
+          return res.status(400).json({ message: "product_id required" });
+      
+        objectKey = `thumbnails/images/${product_id}/${Date.now()}_${safeName}`;
+      }
+  
+      const command = new PutObjectCommand({
+        Bucket: cloude.R2_BUCKET,
+        Key: objectKey,
+        ContentType: mimeType,
+      });
+  
+      const uploadUrl = await getSignedUrl(R2uploedFrom, command, { expiresIn: 3600 });
+  
+      return res.json({
+        success: true,
+        uploadUrl,
+        objectKey,
+      });
+  
+    } catch (error) {
+      console.error("Dynamic Signed URL Error:", error);
+      res.status(500).json({ success: false, message: "Failed to create signed URL" });
+    }
+  }
+
+  /*
+  async function get_Dynamic_Delete_R2_Data(req, res) {
+    try {
+      const { objectKey } = req.body;
+  
+      if (!objectKey)
+        return res.status(400).json({ success: false, message: "objectKey required" });
+  
+      const result = await R2DeleteFrom(objectKey);
+  
+      return res.json(result);
+  
+    } catch (error) {
+      console.error("Delete API Error:", error);
+      res.status(500).json({ success: false, message: "Failed to delete" });
+    }
+  }
+*/
+
+  //single iteam delete
+  async function Dynamic_Delete_R2_Data(objectKey) {
+    try {
+      
+      if (!objectKey)
+        return res.status(400).json({ success: false, message: "objectKey required" });
+  
+      const result = await R2DeleteFrom(objectKey);
+  
+      return result;
+  
+    } catch (error) {
+      console.error("Delete API Error:", error);
+      res.status(500).json({ success: false, message: "Failed to delete" });
+    }
+  }
+
+// module delete
+  async function deleteCourseAndModules(types, module_ids = [], course_id) {
+    try {
+      const deletedResults = [];
+     if(types === 'courses'){
+      if(course_id){
+      // 1) Delete course thumbnails
+      deletedResults.push(await deleteAllByPrefix(`thumbnails/courses/${course_id}`));
+      }
+      // 2) Delete each module videos + thumbnails
+      for (const module_id of module_ids) {
+        deletedResults.push(await deleteAllByPrefix(`videos/${module_id}`));
+        deletedResults.push(await deleteAllByPrefix(`thumbnails/videos/${module_id}`));
+      }
+      return deletedResults;
+     } else if (types === 'products') {
+      for (const module_id of module_ids) {
+        deletedResults.push(await deleteAllByPrefix(`thumbnails/images/${module_id}`));
+      }
+      return deletedResults;
+     }
+      
+
+  
+    } catch (error) {
+      console.error("Delete Course Error:", error);
+      return { success: false, message: "Failed to delete course files" };
+    }
+  }
+  
+   
 module.exports = {
     add_course: add_course,
     add_course_modules : add_course_modules,
@@ -164,6 +510,47 @@ module.exports = {
     update_videos : update_videos,
     select_all_courses : select_all_courses,
     get_modules_by_course : get_modules_by_course,
-    get_videos_by_module : get_videos_by_module
-
+    get_videos_by_module : get_videos_by_module,
+    getDynamicSignedURL : getDynamicSignedURL ,
+    // get_Dynamic_Delete_R2_Data : get_Dynamic_Delete_R2_Data,
+    deleteCourseAndModules : deleteCourseAndModules,
+    DynamicSignedURL : DynamicSignedURL,
+    Dynamic_Delete_R2_Data : Dynamic_Delete_R2_Data
 }
+
+/*
+
+// single vidous uploued use.
+async function getSignedURL(req, res) {
+    try {
+      const { module_id, video_title, contentType } = req.body;
+      const fileName = video_title;
+          console.log("data",req.body)
+      if (!module_id || !fileName) {
+        return res.status(400).json({ success: false, message: "module_id & fileName required" });
+      }
+  
+      const safeName = fileName.replace(/\s/g, "_");
+      const objectKey = `videos/${module_id}/${Date.now()}_${safeName}`;
+  
+      const command = new PutObjectCommand({
+        Bucket: cloude.R2_BUCKET,
+        Key: objectKey,
+        ContentType: contentType || "video/mp4",
+      });
+  
+      const uploadUrl = await getSignedUrl(r2Client, command, { expiresIn: 3600 });
+  
+      return res.json({
+        success: true,
+        uploadUrl,
+        objectKey,
+      });
+    } catch (error) {
+      console.error("Signed URL Error:", error);
+      res.status(500).json({ success: false, message: "Error creating signed URL" });
+    }
+  }
+
+*/
+  

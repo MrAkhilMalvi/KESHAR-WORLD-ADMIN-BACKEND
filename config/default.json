@@ -1,0 +1,38 @@
+{
+    "App": {
+      "config": {
+        "port": 3029,
+        "jwtSecret": "Lionking9"
+      },
+      "aws": {
+        "region": "ap-south-1",
+        "schoolZipBucket": "gseb-ht-gen-main-exam-schools-zip",
+        "studentImgBucket": "gseb-ht-gen-main-exam",
+        "studentPDFBucket": "gseb-ht-gen-main-exam-students-pdf",
+        "requestLogsQueue": "https://sqs.ap-south-1.amazonaws.com/671939990958/gseb-ht-hsc-gen-main-requestlogs-jan2020-prod"
+      },
+      "sendgrid": {
+        "api_key": "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",
+        "template_id": "31d28c03-0693-4d5b-becd-be3ca71c736d"
+      },
+      "2faSms": {
+        "apiKey": "f2f02b1f-a4c8-11e6-a40f-00163ef91450",
+        "url": "http://2factor.in/API/V1/f2f02b1f-a4c8-11e6-a40f-00163ef91450/ADDON_SERVICES/SEND/TSMS",
+        "schoolOtpTemplate": "gseb-ht-otp",
+        "senderId": "GSEBHT",
+        "adminOtpTemplate": "shree-cbt-exam-otp",
+        "adminSenderId": "STUEXM"
+      },
+      "access": {
+        "wildCard": "9033302459"
+      },
+      "cloude":{
+        "CLOUDFLARE_ACCOUNT_ID": "d38c681b8ea7ed56a9130b9abea39e9e" ,
+        "R2_BUCKET":"shree-keshar-world",
+        "R2_ACCESS_KEY" : "81c265ea0e0d332c63ab7e36bbe137ff",
+        "R2_SECRET_KEY" : "1e59e3ebd07907378ea9552198e7a08091c706b44441ab52f83d6228979c6115",
+        "AWS_REGION" : "auto",
+        "PUBLIC_BUCKET_KEY" : "https://pub-1ab989e0fe65425c9a82625d63563afa.r2.dev"
+      }
+    }
+  }

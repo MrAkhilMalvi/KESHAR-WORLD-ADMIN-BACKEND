@@ -17,6 +17,10 @@ router.route('/get/all_courses').get( coursesCtrl.select_all_courses);
 router.route('/get/modules').post(coursesCtrl.get_modules_by_course);
 router.route('/get/videos').post(coursesCtrl.get_videos_by_module);  
 
+router.route('/delete/videos').post( coursesCtrl.delete_Video);
+router.route('/delete/module').post(coursesCtrl.delete_Module);
+router.route('/delete/course').post(coursesCtrl.delete_Courses); 
+
 // ✅ New route: direct video upload
 router.route("/videos/upload-direct").post( coursesCtrl.getDynamicSignedURL);
 // router.route("/videos/delete-direct").post( coursesCtrl.get_Dynamic_Delete_R2_Data);

@@ -25,6 +25,27 @@ async function get_products(req, res, next) {
     }
 }
 
+async function get_products_images(req, res, next) {
+
+  try {
+         const{ product_id} = req.body ;
+      const result = await pgClient.query('SELECT * FROM admin_products_get_images_by_productid($1)',[product_id]);
+
+      const finalData = result.rows.map(product => {
+          return {
+              ...product,
+              image_url: product.image_url 
+                  ? `${cloude.PUBLIC_BUCKET_KEY}/${product.image_url}` 
+                  : null
+          };
+      });
+
+      return res.send({ success: true, result: finalData })
+  } catch (error) {
+      next(error);
+  }
+}
+
 async function add_products(req, res, next) {
 
     try {
@@ -78,8 +99,9 @@ async function update_products(req, res, next) {
 
         const data = await pgClient.query('SELECT * FROM admin_products_select_id($1)',[id]);
       console.log("data",data.rows)
+      if(thumbnail_url !== data.rows[0].thumbnail_url){
         const  R2_Data = await Dynamic_Delete_R2_Data( data.rows[0].thumbnail_url);
-
+      }
         const result = await pgClient.query('SELECT * FROM admin_products_update($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)',[id,title, slug, description, category, sub_category, price, discount_price, is_free,thumbnail_url,language]);
 
         return res.send({ success: true, data: result.rows[0] })
@@ -93,36 +115,37 @@ async function delete_products(req, res, next) {
     try {
         const { id } = req.body;
         const types = 'products';
-        console.log("id",id)
+
         const result = await pgClient.query('SELECT * FROM admin_products_select_id($1)',[id]);
-      console.log(result.rows[0].thumbnail_url)
+
+   
         const  R2_Data = await Dynamic_Delete_R2_Data( result.rows[0].thumbnail_url);
-     
+ 
        await deleteCourseAndModules(types,[id])
 
         const  data= await pgClient.query('SELECT * FROM admin_products_delete($1)',[id]);
-
+console.log(data);
         return res.send({ success: true, data: result.rows[0] })
     } catch (error) {
         next(error);
     }
 }
 
-async function delete_products_thumbnail(req, res, next) {
+// async function delete_products_thumbnail(req, res, next) {
 
-    try {
-        const { id } = req.body;
+//     try {
+//         const { id } = req.body;
 
-        const result = await pgClient.query('SELECT * FROM admin_products_select_id($1)',[id]);
+//         const result = await pgClient.query('SELECT * FROM admin_products_select_id($1)',[id]);
       
-        const  data = await Dynamic_Delete_R2_Data( result.rows[0].thumbnail_url)
+//         const  data = await Dynamic_Delete_R2_Data( result.rows[0].thumbnail_url)
        
      
-        return res.send({ success: true, data:data  })
-    } catch (error) {
-        next(error);
-    }
-}
+//         return res.send({ success: true, data:data  })
+//     } catch (error) {
+//         next(error);
+//     }
+// }
 
 async function saveProductImage(req, res) {
     try {
@@ -147,11 +170,11 @@ async function saveProductImage(req, res) {
   async function deleteProductImage(req, res) {
     try {
       const { id } = req.body;
-
+// console.log("id",id)
       const result = await pgClient.query("SELECT admin_products_select_images($1)",[ id ]);
-
+// console.log("result",result.rows[0])
       await Dynamic_Delete_R2_Data(result.rows[0].image_url)
-  
+      const data = await pgClient.query("SELECT admin_products_images_delete($1)",[ id ]);
       return res.json({
         success : true,
         message : "the images are delete"
@@ -169,6 +192,7 @@ module.exports = {
     delete_products : delete_products,
     get_products : get_products,
     saveProductImage : saveProductImage,
-    delete_products_thumbnail : delete_products_thumbnail,
-    deleteProductImage : deleteProductImage
+    // delete_products_thumbnail : delete_products_thumbnail,
+    deleteProductImage : deleteProductImage,
+    get_products_images :get_products_images
 }

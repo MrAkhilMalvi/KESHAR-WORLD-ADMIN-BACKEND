@@ -5,6 +5,7 @@ const config = require ('config')
 const cloude = config.get("App.cloude");
 const { R2uploedFrom, PutObjectCommand, getSignedUrl ,R2DeleteFrom , deleteAllByPrefix} = require("../helpers/r2Client");
 
+//---------------------------- Add Function ------------------------------------
 async function add_course(req, res, next) {
 
     try {
@@ -80,6 +81,8 @@ async function add_videos(req, res, next) {
     }
 }
 
+//---------------------------- Update Function ------------------------------------
+
 async function update_course(req, res, next) {
 
     try {
@@ -95,13 +98,19 @@ async function update_course(req, res, next) {
             category,
             thumbnail_url
         } = req.body;
+       console.log("bodydata",req.body)
 
         const data = await pgClient.query('SELECT * FROM admin_courses_select($1)',[id]);
+        console.log("data",data.rows)
 
-       if(thumbnail_url === data.rows[0].thumbnail_url){
-        const  R2_Data = await Dynamic_Delete_R2_Data( data.rows[0].thumbnail_url);
+        // const url =`${cloude.PUBLIC_BUCKET_KEY}/${data.rows[0].thumbnail}`;
+        // console.log("url",url)
+
+       if(thumbnail_url !== data.rows[0].thumbnail){
+        console.log("R2_Data1")
+        const  R2_Data = await Dynamic_Delete_R2_Data( data.rows[0].thumbnail);
        }
-
+       console.log("R2_Data")
         const result = await pgClient.query('SELECT * FROM admin_courses_updation_course($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',[id,title, price, description, is_free, instructor, original_price, badge, category,thumbnail_url]);
 
         return res.send({ success: true, data: result.rows })
@@ -188,6 +197,7 @@ async function update_videos(req, res, next) {
   }
 }
 
+//---------------------------- select Function ------------------------------------
 
 async function select_all_courses(req, res, next) {
 
@@ -233,6 +243,66 @@ async function get_videos_by_module(req, res, next) {
         next(error);
     }
 }
+
+//---------------------------- Delete Function ------------------------------------
+
+async function delete_Video(req,res,next){
+  try {
+    const { video_id } = req.body;
+    const result = await pgClient.query("SELECT * FROM admin_courses_select_video ($1)", [video_id]);
+    
+    if (!result.rows.length)
+      return res.status(404).json({ success: false, message: "Video not found" });
+
+    const video = result.rows[0];
+
+    if (video.video_url && video.video_url != null) await Dynamic_Delete_R2_Data(video.video_url);
+
+    if (video.thumbnail_url  && video.thumbnail_url != null) await Dynamic_Delete_R2_Data(video.thumbnail_url);
+   
+
+    const data = await pgClient.query("SELECT * FROM admin_delete_video($1)", [video_id]);
+    
+     res.json({ success: true, message: "Video deleted" });
+
+  } catch (error) {
+    next (error)
+  }
+}
+
+async function delete_Module(req,res,next){
+  try {
+    const { module_id } = req.body;
+    const types ='module'
+    await deleteCourseAndModules (types,[module_id])
+    const data = await pgClient.query("SELECT * FROM admin_courses_module_delete($1)", [module_id]);
+    
+    return res.json({ success: true, message: "Module deleted" });
+  } catch (error) {
+    next (error)
+  }
+}
+
+async function delete_Courses(req, res, next) {
+  try {
+  
+    const { couses_id } = req.body;
+    const result = await pgClient.query('SELECT * FROM admin_courses_get_modules_by_course($1)',[couses_id]);
+    const module_ids = result.rows.map(row => row.module_id);
+console.log("module_ids",module_ids)
+    await deleteCourseAndModules("courses", module_ids, couses_id);
+
+    // delete database rows
+    await pgClient.query("SELECT * FROM admin_delete_course($1)", [couses_id]);
+
+    return res.json({ success: true, message: "Course deleted" });
+
+  } catch (error) {
+    next(error);
+  }
+}
+
+//---------------------------- clode Function ------------------------------------
 /*
 async function getDynamicSignedURL(req, res) {
     try {
@@ -301,6 +371,7 @@ async function getDynamicSignedURL(req, res) {
 // single iteam add
 async function DynamicSignedURL(type, id,fileName, contentType) {
     try {
+      console.log("body",type, id,fileName, contentType)
 
       if (!type || !fileName) {
         return res.status(400).json({ success: false, message: "type and fileName required" });
@@ -389,8 +460,8 @@ async function DynamicSignedURL(type, id,fileName, contentType) {
       let objectKey = "";
   
       if (type === "course_thumbnail") {
-        if (!id) return res.status(400).json({ message: "course_id required" });
-        objectKey = `thumbnails/courses/${id}/${Date.now()}_${safeName}`;
+        if (!course_id) return res.status(400).json({ message: "course_id required" });
+        objectKey = `thumbnails/courses/${course_id}/${Date.now()}_${safeName}`;
       }
       else if (type === "product_thumbnail") {
         if (!product_id) return res.status(400).json({ message: "product_id required" });
@@ -458,7 +529,7 @@ async function DynamicSignedURL(type, id,fileName, contentType) {
     try {
       
       if (!objectKey)
-        return res.status(400).json({ success: false, message: "objectKey required" });
+        return { success: false, message: "objectKey required" };
   
       const result = await R2DeleteFrom(objectKey);
   
@@ -490,10 +561,15 @@ async function DynamicSignedURL(type, id,fileName, contentType) {
         deletedResults.push(await deleteAllByPrefix(`thumbnails/images/${module_id}`));
       }
       return deletedResults;
+     } else if (types === 'module') {
+      for (const module_id of module_ids) {
+        deletedResults.push(await deleteAllByPrefix(`videos/${module_id}`));
+        deletedResults.push(await deleteAllByPrefix(`thumbnails/videos/${module_id}`));
+      }
+      return deletedResults;
      }
       
 
-  
     } catch (error) {
       console.error("Delete Course Error:", error);
       return { success: false, message: "Failed to delete course files" };
@@ -515,7 +591,10 @@ module.exports = {
     // get_Dynamic_Delete_R2_Data : get_Dynamic_Delete_R2_Data,
     deleteCourseAndModules : deleteCourseAndModules,
     DynamicSignedURL : DynamicSignedURL,
-    Dynamic_Delete_R2_Data : Dynamic_Delete_R2_Data
+    Dynamic_Delete_R2_Data : Dynamic_Delete_R2_Data,
+    delete_Video : delete_Video ,
+    delete_Module : delete_Module,
+    delete_Courses : delete_Courses
 }
 
 /*
